@@ -1,41 +1,86 @@
 # CrownPay Agent
 
-CrownPay Agent is an AI game economy agent for Hedera. After a mock party-game match, it reviews the winner or podium, enforces reward rules, sends tiny testnet HBAR rewards, and publishes verifiable match receipts to Hedera Consensus Service.
+CrownPay Agent is an AI game reward agent on Hedera. Game servers submit completed match results, CrownPay checks reward policy, sends testnet HBAR to the configured winners, and publishes public match receipts to Hedera Consensus Service.
 
-It is built for Hedera AI Bounty Week 1: "Fun Basic Hedera Agent." The app is designed to be fun, demo-ready, and usable even before Hedera credentials are configured.
+Built for Hedera AI Bounty Week 1: "Fun Basic Hedera Agent."
+
+## Why It Fits
+
+CrownPay demonstrates a practical AI agent that can operate a game economy on Hedera:
+
+- reads match results
+- explains reward decisions
+- enforces payout rules in code
+- sends HBAR rewards on testnet
+- publishes verifiable HCS receipts
+- works in demo mode when Hedera credentials are missing
+
+The product is framed as an engine-agnostic reward layer. A Unity, Unreal, web, or backend game server can integrate by sending one standardized match payload.
 
 ## Features
 
-- Polished one-page Next.js dashboard for a fake multiplayer mode called Crown Rush.
-- Random believable match generation with players like CherryKing, PixelNinja, HbarHero, KoiRunner, ToriiGhost, and BambooByte.
-- Agent panel with staged reward workflow: read result, check policy, explain decision, send HBAR, publish HCS receipt.
-- Server-side policy enforcement before any LLM or blockchain action.
-- Podium payouts for 1st, 2nd, and 3rd place using deterministic payout weights.
-- Demo mode when Hedera env vars are missing, with clearly marked demo transaction ids.
-- Optional OpenAI-compatible reasoning via `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL`.
-- Receipt JSON copy, share text copy, HashScan links, and local match history.
+- Polished one-page Next.js dashboard for a fake party-game mode called Crown Rush
+- Random match generation with mock players and believable stats
+- AI-style reward agent panel with staged progress
+- Custom reward recipients: games choose winners, wallets, and HBAR amounts
+- Hedera testnet HBAR transfers
+- HCS receipt publishing
+- HashScan links for transactions and receipts
+- Demo mode fallback without Hedera credentials
+- Local SDK helper for game/server integrations
+- External game simulator script
 
-## Hedera Integration
+## Tech Stack
 
-The runtime blockchain integration is isolated behind `app/api/agent/reward/route.ts` and `lib/hedera/*`.
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- lucide-react
+- Hedera SDK fallback via `@hashgraph/sdk`
+- OpenAI-compatible reasoning optional via env vars
 
-The project is structured for Hedera Agent Kit adoption. Current Hedera docs note the JavaScript Agent Kit v4 package moved to `@hashgraph/hedera-agent-kit`, while framework integrations and plugins are separate. To ship a reliable hackathon demo quickly, CrownPay uses `@hashgraph/sdk` as the execution fallback for:
+## Architecture
 
-- HBAR transfers with `TransferTransaction`
-- HCS topic creation when `HEDERA_HCS_TOPIC_ID` is absent
-- HCS receipt publishing with `TopicMessageSubmitTransaction`
+The frontend calls server routes only. Blockchain actions are isolated behind the Hedera service layer.
 
-The agent reasoning and safety policy stay app-owned. The LLM never decides transaction amounts.
+```txt
+Game Server
+  -> POST /api/crownpay/reward
+  -> CrownPay policy + reasoning
+  -> Hedera HBAR transfer
+  -> HCS receipt
+```
+
+Key files:
+
+- `app/page.tsx` - main dashboard
+- `app/api/agent/reward/route.ts` - dashboard reward route
+- `app/api/crownpay/reward/route.ts` - engine-agnostic integration route
+- `lib/hedera/rewardAgent.ts` - policy, reasoning, reward orchestration
+- `lib/hedera/hederaClient.ts` - Hedera SDK client, HBAR transfer, HCS publish
+- `lib/sdk/crownpay.ts` - local SDK helper
+- `scripts/simulate-external-games.mjs` - external game integration simulation
 
 ## How Games Integrate
 
-CrownPay is engine-agnostic. A Unity, Unreal, web, mobile, or backend game server can send a completed match result to:
+Games send completed match results to:
 
 ```http
 POST /api/crownpay/reward
 ```
 
-The standardized input schema is `CrownPayMatchResult`:
+Example:
+
+```ts
+await fetch("/api/crownpay/reward", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(matchResult),
+});
+```
+
+Schema:
 
 ```ts
 type CrownPayMatchResult = {
@@ -43,11 +88,20 @@ type CrownPayMatchResult = {
   gameMode: string;
   arena: string;
   completedAt?: string;
-  winnerPlayerId?: string;
-  rewardMode?: "single" | "podium";
-  requestedRewardHbar?: number;
-  rewardRecipients?: CrownPayRewardRecipient[];
   players: CrownPayMatchPlayer[];
+  rewardRecipients?: CrownPayRewardRecipient[];
+  metadata?: Record<string, string | number | boolean>;
+};
+
+type CrownPayMatchPlayer = {
+  playerId: string;
+  displayName: string;
+  hederaAccountId?: string;
+  score: number;
+  crownHoldSeconds: number;
+  eliminations: number;
+  survived: boolean;
+  rank: number;
 };
 
 type CrownPayRewardRecipient = {
@@ -59,79 +113,76 @@ type CrownPayRewardRecipient = {
 };
 ```
 
-Integration modes:
+The implementing game controls:
 
-- REST API: POST match results directly to `/api/crownpay/reward`.
-- JavaScript SDK: use `lib/sdk/crownpay.ts` for typed helpers such as `submitCrownPayReward` and `submitCrownPayPodiumRewards`.
-- Manual Demo Mode: use the dashboard without env vars to show the full flow with demo tx ids.
+- how many winners get paid
+- each winner's wallet
+- each reward amount in HBAR
+- labels and placements
 
-Internally, `/api/crownpay/reward` maps the standardized schema into the same reward pipeline used by `/api/agent/reward`.
+CrownPay validates that each rewarded player exists in the submitted match result, clamps unsafe amounts by operator policy, then executes the payout.
 
-For implementer-defined rewards, send the exact winners, wallets, and amounts:
+## Example Match Payload
 
 ```json
 {
+  "matchId": "match-001",
+  "gameMode": "Crown Rush",
+  "arena": "Cherry Crown Garden",
+  "players": [
+    {
+      "playerId": "p1",
+      "displayName": "CherryKing",
+      "hederaAccountId": "0.0.123",
+      "score": 920,
+      "crownHoldSeconds": 48,
+      "eliminations": 5,
+      "survived": true,
+      "rank": 1
+    }
+  ],
   "rewardRecipients": [
     {
-      "playerId": "winner-player-id",
-      "hederaAccountId": "0.0.x",
+      "playerId": "p1",
+      "hederaAccountId": "0.0.123",
       "amountHbar": 0.05,
       "placementRank": 1,
       "label": "1st place"
-    },
-    {
-      "playerId": "runner-up-player-id",
-      "hederaAccountId": "0.0.y",
-      "amountHbar": 0.03,
-      "placementRank": 2,
-      "label": "2nd place"
     }
   ]
 }
 ```
 
-If `rewardRecipients` is omitted, CrownPay keeps the simple demo presets:
-
-- 1st place: 100% of requested reward
-- 2nd place: 60% of requested reward
-- 3rd place: 40% of requested reward
-
-Run the external game simulator:
-
-```bash
-CROWNPAY_WINNING_WALLET=0.0.x CROWNPAY_FIRST_HBAR=0.05 CROWNPAY_SECOND_HBAR=0.03 CROWNPAY_THIRD_HBAR=0.02 npm run simulate:external-game
-```
-
 ## Trust Model
 
-CrownPay currently trusts the game server to submit honest match results. The agent does not decide who won from raw gameplay footage or replay state. It validates simple reward policy in code:
+V1 trusts the game server to submit honest match results. CrownPay does not verify raw gameplay or replay files yet.
 
-- a winner must exist
-- single-winner rewards must match the rank-one player or supplied winner id
-- custom rewards must reference players in the submitted match result
-- custom recipient wallets and HBAR amounts are supplied by the implementing game/server
-- requested reward is capped by `MAX_REWARD_HBAR`
-- real transfers require Hedera operator env vars and a winner account id
+The current policy layer validates:
 
-The LLM can explain the reward, but it cannot override policy or choose unsafe amounts.
+- recipient players exist in the submitted match
+- reward amount is greater than zero
+- reward amount does not exceed `MAX_REWARD_HBAR`
+- real transfers require Hedera operator credentials
+- real transfers require recipient wallet IDs
+
+The LLM can explain a reward decision, but it never chooses transaction amounts or overrides policy.
 
 ## V1 Limitations
 
-- Match results are accepted as server-submitted JSON.
-- No cryptographic match attestation yet.
-- No anti-cheat, replay verification, or tournament dispute flow.
-- Demo player Hedera account ids are configured manually.
-- Podium preset split weights are fixed in code, but production-style integrations should send `rewardRecipients`.
-- The JavaScript SDK is local to this repo, not published as an npm package.
+- Match results are server-submitted JSON
+- No signed match attestations yet
+- No replay verification or anti-cheat layer yet
+- Local SDK is included in this repo, not published to npm
+- Demo player wallet IDs are configured through env vars for the dashboard flow
 
 ## Future Verification Upgrades
 
-- Signed match results from trusted game servers.
-- Replay hash or match-state root stored in the HCS receipt.
-- Game-server public key registry.
-- Optional oracle or referee service for tournament matches.
-- NFT badge or token-gated reward rules.
-- Published `@crownpay/sdk` package for engine and backend integrations.
+- Signed match results from trusted game servers
+- Replay hash or match-state root stored in the HCS receipt
+- Game-server public key registry
+- Optional referee/oracle service for competitive matches
+- Published `@crownpay/sdk` package
+- Configurable reward policy templates per game
 
 ## Setup
 
@@ -144,13 +195,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment Variables
 
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env.local`:
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Variables:
+Operator/deployment config:
 
 ```bash
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -159,43 +210,53 @@ HEDERA_OPERATOR_ID=
 HEDERA_OPERATOR_KEY=
 HEDERA_HCS_TOPIC_ID=
 MAX_REWARD_HBAR=2
-DEFAULT_REWARD_HBAR=0.5
+DEFAULT_REWARD_HBAR=0.05
 OPENAI_API_KEY=
 OPENAI_BASE_URL=
 OPENAI_MODEL=
 ```
 
-Without `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_KEY`, the app runs in demo mode.
+`HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_KEY` are only needed by the hosted CrownPay operator. Game developers integrating through the API send match JSON and recipient wallets; they do not need your operator key.
 
-## Create And Fund A Hedera Testnet Account
+`HEDERA_HCS_TOPIC_ID` is optional. If omitted, CrownPay attempts to create an HCS topic when processing a real reward.
 
-1. Go to the Hedera Developer Portal: [https://portal.hedera.com](https://portal.hedera.com)
-2. Create a testnet account.
-3. Copy the account id into `HEDERA_OPERATOR_ID`.
-4. Copy the private key into `HEDERA_OPERATOR_KEY`.
-5. Make sure the account has testnet HBAR.
+`MAX_REWARD_HBAR` is the operator safety cap.
 
-For player payouts, set a winner account by adding one or more public env vars if desired:
+`DEFAULT_REWARD_HBAR` is used by the dashboard demo flow. External game integrations should send explicit `rewardRecipients`.
+
+Optional dashboard mock player wallets:
 
 ```bash
-NEXT_PUBLIC_CHERRYKING_ACCOUNT_ID=0.0.x
-NEXT_PUBLIC_PIXELNINJA_ACCOUNT_ID=0.0.x
-NEXT_PUBLIC_HBARHERO_ACCOUNT_ID=0.0.x
-NEXT_PUBLIC_KOIRUNNER_ACCOUNT_ID=0.0.x
-NEXT_PUBLIC_TORIIGHOST_ACCOUNT_ID=0.0.x
-NEXT_PUBLIC_BAMBOOBYTE_ACCOUNT_ID=0.0.x
+NEXT_PUBLIC_CHERRYKING_ACCOUNT_ID=
+NEXT_PUBLIC_PIXELNINJA_ACCOUNT_ID=
+NEXT_PUBLIC_HBARHERO_ACCOUNT_ID=
+NEXT_PUBLIC_KOIRUNNER_ACCOUNT_ID=
+NEXT_PUBLIC_TORIIGHOST_ACCOUNT_ID=
+NEXT_PUBLIC_BAMBOOBYTE_ACCOUNT_ID=
 ```
 
-If a winner has no account id, CrownPay blocks the real transfer and creates a demo receipt instead.
+Without Hedera operator credentials, CrownPay runs in demo mode.
 
-## Configure HCS
+## Hedera Testnet Setup
 
-Option A: leave `HEDERA_HCS_TOPIC_ID` blank. CrownPay will attempt to create a topic automatically when a real reward is processed.
+1. Create a Hedera testnet account at [https://portal.hedera.com](https://portal.hedera.com).
+2. Fund it with testnet HBAR.
+3. Set `HEDERA_OPERATOR_ID`.
+4. Set `HEDERA_OPERATOR_KEY`.
+5. Optionally create an HCS topic and set `HEDERA_HCS_TOPIC_ID`.
 
-Option B: create a topic yourself and set:
+## External Game Simulation
+
+Run:
 
 ```bash
-HEDERA_HCS_TOPIC_ID=0.0.x
+CROWNPAY_WINNING_WALLET=0.0.x npm run simulate:external-game
+```
+
+Optional custom amounts:
+
+```bash
+CROWNPAY_FIRST_HBAR=0.05 CROWNPAY_SECOND_HBAR=0.03 CROWNPAY_THIRD_HBAR=0.02 npm run simulate:external-game
 ```
 
 ## Demo Script
@@ -206,8 +267,6 @@ HEDERA_HCS_TOPIC_ID=0.0.x
 4. "It rewards the winner with testnet HBAR."
 5. "It publishes a match receipt to Hedera Consensus Service."
 6. "This shows how AI agents can operate game economies with public receipts."
-
-Podium demo add-on: "For V1, CrownPay can also reward the top three players from the same match result, publishing one receipt per payout."
 
 ## Submission Checklist
 
