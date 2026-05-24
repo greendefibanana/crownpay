@@ -7,6 +7,10 @@ import {
   TopicMessageSubmitTransaction,
   TransferTransaction,
 } from "@hashgraph/sdk";
+import {
+  publishReceiptToHcsWithAgentKit,
+  sendHbarRewardWithAgentKit,
+} from "@/lib/hedera/agentKitAdapter";
 import type { HederaActionResult, HederaConfig } from "@/lib/hedera/types";
 
 export function getHederaConfig(): HederaConfig {
@@ -57,6 +61,16 @@ export async function sendHbarReward(input: {
   config?: HederaConfig;
 }) {
   const config = input.config || getHederaConfig();
+
+  try {
+    return await sendHbarRewardWithAgentKit({ ...input, config });
+  } catch (error) {
+    console.warn(
+      "Agent Kit HBAR transfer failed before completion; falling back to Hedera SDK.",
+      error,
+    );
+  }
+
   const client = createHederaClient(config);
 
   try {
@@ -78,6 +92,16 @@ export async function publishReceiptToHcs(input: {
   config?: HederaConfig;
 }): Promise<Pick<HederaActionResult, "hcsTopicId" | "hcsMessageTxId">> {
   const config = input.config || getHederaConfig();
+
+  try {
+    return await publishReceiptToHcsWithAgentKit({ ...input, config });
+  } catch (error) {
+    console.warn(
+      "Agent Kit HCS publish failed before completion; falling back to Hedera SDK.",
+      error,
+    );
+  }
+
   const client = createHederaClient(config);
 
   try {

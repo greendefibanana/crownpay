@@ -43,6 +43,7 @@ The product is framed as an engine-agnostic reward layer. A Unity, Unreal, web, 
 - Tailwind CSS
 - Framer Motion
 - lucide-react
+- Hedera Agent Kit via `@hashgraph/hedera-agent-kit`
 - Hedera SDK fallback via `@hashgraph/sdk`
 - OpenAI-compatible reasoning optional via env vars
 
@@ -64,9 +65,22 @@ Key files:
 - `app/api/agent/reward/route.ts` - dashboard reward route
 - `app/api/crownpay/reward/route.ts` - engine-agnostic integration route
 - `lib/hedera/rewardAgent.ts` - policy, reasoning, reward orchestration
-- `lib/hedera/hederaClient.ts` - Hedera SDK client, HBAR transfer, HCS publish
+- `lib/hedera/agentKitAdapter.ts` - Hedera Agent Kit runtime and transaction builder adapter
+- `lib/hedera/hederaClient.ts` - Hedera execution service with Agent Kit first and SDK fallback
 - `lib/sdk/crownpay.ts` - local SDK helper
 - `scripts/simulate-external-games.mjs` - external game integration simulation
+
+## Hedera Agent Kit Integration
+
+CrownPay uses `@hashgraph/hedera-agent-kit` for the Hedera action adapter. The reward service builds HBAR transfer and HCS receipt transactions through Agent Kit's `HederaBuilder`, then executes them against Hedera testnet.
+
+The project also keeps a direct `@hashgraph/sdk` fallback path. That fallback is intentional for the bounty demo: if the Agent Kit package API changes or fails during setup, the app can still complete the same HBAR transfer and HCS receipt flow instead of breaking on stage.
+
+You can inspect the active runtime at:
+
+```http
+GET /api/health
+```
 
 ## How Games Integrate
 
@@ -279,5 +293,5 @@ CROWNPAY_FIRST_HBAR=0.05 CROWNPAY_SECOND_HBAR=0.03 CROWNPAY_THIRD_HBAR=0.02 npm 
 - GitHub repo: [greendefibanana/crownpay](https://github.com/greendefibanana/crownpay)
 - Demo/social URL: [https://crownpay.vercel.app/](https://crownpay.vercel.app/)
 - Project description: CrownPay Agent turns game results into Hedera rewards and HCS receipts.
-- Implementation details: Next.js App Router, TypeScript, Tailwind, Framer Motion, Hedera SDK fallback, Agent Kit-ready adapter layer.
+- Implementation details: Next.js App Router, TypeScript, Tailwind, Framer Motion, Hedera Agent Kit transaction adapter, Hedera SDK fallback, HCS receipts, engine-agnostic reward API.
 - Feedback submitted as GitHub issue: [hashgraph/hedera-agent-kit-js#856](https://github.com/hashgraph/hedera-agent-kit-js/issues/856)
