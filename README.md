@@ -4,6 +4,12 @@ CrownPay Agent is an AI game reward agent on Hedera. Game servers submit complet
 
 Built for Hedera AI Bounty Week 1: "Fun Basic Hedera Agent."
 
+## Links
+
+- Live demo: [https://crownpay.vercel.app/](https://crownpay.vercel.app/)
+- GitHub repo: [greendefibanana/crownpay](https://github.com/greendefibanana/crownpay)
+- Feedback issue: [hashgraph/hedera-agent-kit-js#856](https://github.com/hashgraph/hedera-agent-kit-js/issues/856)
+
 ## Why It Fits
 
 CrownPay demonstrates a practical AI agent that can operate a game economy on Hedera:
@@ -270,8 +276,8 @@ CROWNPAY_FIRST_HBAR=0.05 CROWNPAY_SECOND_HBAR=0.03 CROWNPAY_THIRD_HBAR=0.02 npm 
 
 ## Submission Checklist
 
-- GitHub repo: `<paste link here>`
-- Demo/social URL: `<paste link here>`
+- GitHub repo: [greendefibanana/crownpay](https://github.com/greendefibanana/crownpay)
+- Demo/social URL: [https://crownpay.vercel.app/](https://crownpay.vercel.app/)
 - Project description: CrownPay Agent turns game results into Hedera rewards and HCS receipts.
 - Implementation details: Next.js App Router, TypeScript, Tailwind, Framer Motion, Hedera SDK fallback, Agent Kit-ready adapter layer.
-- Feedback submitted as GitHub issue: `<paste link here>`
+- Feedback submitted as GitHub issue: [hashgraph/hedera-agent-kit-js#856](https://github.com/hashgraph/hedera-agent-kit-js/issues/856)
