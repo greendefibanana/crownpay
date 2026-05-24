@@ -17,6 +17,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "CrownPay Agent",
   description: "AI match rewards, verified on Hedera.",
+  icons: {
+    icon: "/crownpay-logo.png",
+    shortcut: "/crownpay-logo.png",
+    apple: "/crownpay-logo.png",
+  },
 };
 
 export default function RootLayout({
